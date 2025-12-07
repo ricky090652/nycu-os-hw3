@@ -13,6 +13,7 @@
 #include <linux/cpu.h>
 #include <linux/mm.h>
 #include <linux/timekeeping.h>
+#include <linux/mutex.h>
 
 #define DEVICE_NAME "kfetch"
 #define BUF_LEN 1024
@@ -37,6 +38,7 @@ static atomic_t already_open = ATOMIC_INIT(CDEV_NOT_USED);
 static char kfetch_buf[BUF_LEN + 1];
 static struct class *cls;
 static int mask_info = KFETCH_FULL_INFO;
+static DEFINE_MUTEX(kfetch_lock);
 
 
 
@@ -82,16 +84,19 @@ static ssize_t kfetch_read(struct file *filp,
     char info_lines[INFO_LINES][64];
     int info_count = 0;   /* 目前已填入的資訊行數 */
 
-    if (*offset > 0)
+    if (mutex_lock_interruptible(&kfetch_lock))
+        return -ERESTARTSYS;
+
+    if (*offset > 0) {
+        mutex_unlock(&kfetch_lock);
         return 0;
+    }
 
     memset(info_lines, 0, sizeof(info_lines));
 
     uts  = &init_uts_ns.name;
     host = uts->nodename;
     hlen = strlen(host);
-
-    /* 依序檢查各 bit，要顯示就塞到 info_lines[info_count]，再 ++ */
 
     /* Kernel */
     if (mask_info & KFETCH_RELEASE) {
@@ -132,8 +137,10 @@ static ssize_t kfetch_read(struct file *filp,
 
     /* Procs */
     if (mask_info & KFETCH_NUM_PROCS) {
-        int procs = 0;   
-        for_each_process(task) if (task->mm) procs++;
+        int procs = 0;
+        for_each_process(task)
+            if (task->mm)
+                procs++;
         snprintf(info_lines[info_count], sizeof(info_lines[info_count]),
                  "Procs: %d", procs);
         info_count++;
@@ -169,14 +176,14 @@ static ssize_t kfetch_read(struct file *filp,
     /* logo line 1~6 + info_lines 動態內容 */
     for (i = 1; i < LOGO_LINES && len < BUF_LEN - 1; i++) {
         int logo_len = strlen(logo_lines[i]);
-        int info_idx = i - 1;   /* 第 1 行對應 info_lines[0]*/
+        int info_idx = i - 1;   /* 第 1 行對應 info_lines[0] */
 
         len += scnprintf(kfetch_buf + len, BUF_LEN - len, "%s", logo_lines[i]);
 
         for (; logo_len < LOGO_WIDTH && len < BUF_LEN - 1; logo_len++)
             kfetch_buf[len++] = ' ';
 
-        if (info_idx >= 0 && info_idx < info_count) {   /* 只印有填過的行 */
+        if (info_idx >= 0 && info_idx < info_count) {
             len += scnprintf(kfetch_buf + len, BUF_LEN - len,
                              "%s", info_lines[info_idx]);
         }
@@ -187,12 +194,16 @@ static ssize_t kfetch_read(struct file *filp,
     if (len > BUF_LEN)
         len = BUF_LEN;
 
-    if (copy_to_user(buffer, kfetch_buf, len))
+    if (copy_to_user(buffer, kfetch_buf, len)) {
+        mutex_unlock(&kfetch_lock);
         return -EFAULT;
+    }
+
+    mutex_unlock(&kfetch_lock);
 
     *offset = len;
     return len;
-    }
+}
 
 static ssize_t kfetch_write(struct file *filp,
                             const char __user *buffer,
@@ -201,15 +212,25 @@ static ssize_t kfetch_write(struct file *filp,
 {
     int new_mask;
 
-    if (length < sizeof(int))
-        return -EINVAL;
+    if (mutex_lock_interruptible(&kfetch_lock))
+        return -ERESTARTSYS;
 
-    if (copy_from_user(&new_mask, buffer, sizeof(int)))
+    if (length < sizeof(int)) {
+        mutex_unlock(&kfetch_lock);
+        return -EINVAL;
+    }
+
+    if (copy_from_user(&new_mask, buffer, sizeof(int))) {
+        mutex_unlock(&kfetch_lock);
         return -EFAULT;
+    }
 
     mask_info = new_mask;
+
+    mutex_unlock(&kfetch_lock);
     return sizeof(int);
 }
+
 
 static const struct file_operations kfetch_ops = {
     .owner   = THIS_MODULE,
