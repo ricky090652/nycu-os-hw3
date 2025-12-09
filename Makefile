@@ -1,10 +1,10 @@
-# 你的模組名稱（不用加 .ko）
+# 模組名稱
 obj-m := kfetch_mod_314581038.o
 
-# devkit 目錄：作業說明中的 linux-6.8-devkit
+# devkit目錄
 KDIR ?= $(PWD)/linux-v6.8-devkit
 
-# 交叉編譯工具鏈（跟作業一樣）
+# 
 ARCH ?= riscv
 CROSS_COMPILE ?= riscv64-linux-gnu-
 

@@ -45,11 +45,11 @@ static DEFINE_MUTEX(kfetch_lock);
 const char *logo_lines[] ={
 "        .-.        ",
 "       (.. |       ",
-"       <>  |       ",
+"       \033[33m<>\033[0m  |       ",
 "      / --- \\      ",
 "     ( |   | )     ",
-"   |\\_)__(_//|   ",
-"  <__)------(__>   "
+"   \033[33m|\\\033[0m\\_)___/\\)\033[33m/\\\033[0m   ",
+"  \033[33m<__)\033[0m------\033[33m(__/\033[0m   "
 };
 
 
@@ -101,14 +101,14 @@ static ssize_t kfetch_read(struct file *filp,
     /* Kernel */
     if (mask_info & KFETCH_RELEASE) {
         snprintf(info_lines[info_count], sizeof(info_lines[info_count]),
-                 "Kernel: %s", uts->release);
+                 "\033[33mKernel:\033[0m %s", uts->release);
         info_count++;
     }
 
     /* CPU model */
     if (mask_info & KFETCH_CPU_MODEL) {
         snprintf(info_lines[info_count], sizeof(info_lines[info_count]),
-                 "CPU: %s", "RISC-V Processor");
+                 "\033[33mCPU:\033[0m %s", "RISC-V Processor");
         info_count++;
     }
 
@@ -117,7 +117,7 @@ static ssize_t kfetch_read(struct file *filp,
         int online = num_online_cpus();
         int total  = num_possible_cpus();
         snprintf(info_lines[info_count], sizeof(info_lines[info_count]),
-                 "CPUs: %d / %d", online, total);
+                 "\033[33mCPUs:\033[0m %d / %d", online, total);
         info_count++;
     }
 
@@ -131,7 +131,7 @@ static ssize_t kfetch_read(struct file *filp,
         free_mb  = (si.freeram  * si.mem_unit) / (1024 * 1024);
 
         snprintf(info_lines[info_count], sizeof(info_lines[info_count]),
-                 "Mem: %lu / %lu MB", free_mb, total_mb);
+                 "\033[33mMem:\033[0m %lu / %lu MB", free_mb, total_mb);
         info_count++;
     }
 
@@ -142,7 +142,7 @@ static ssize_t kfetch_read(struct file *filp,
             if (task->mm)
                 procs++;
         snprintf(info_lines[info_count], sizeof(info_lines[info_count]),
-                 "Procs: %d", procs);
+                 "\033[33mProcs:\033[0m %d", procs);
         info_count++;
     }
 
@@ -151,13 +151,13 @@ static ssize_t kfetch_read(struct file *filp,
         unsigned long up_sec = ktime_get_boottime_seconds();
         unsigned long up_min = up_sec / 60;
         snprintf(info_lines[info_count], sizeof(info_lines[info_count]),
-                 "Uptime: %lu mins", up_min);
+                 "\033[33mUptime:\033[0m %lu mins", up_min);
         info_count++;
     }
 
     /* hostname 行 */
     for (i = 0; i < LOGO_WIDTH && len < BUF_LEN - 1; i++)
-        kfetch_buf[len++] = ' ';
+        kfetch_buf[len++] = ' ';//一開始先補20個空白再接hostname
     len += scnprintf(kfetch_buf + len, BUF_LEN - len, "%s\n", host);
 
     /* logo line 0 + 分隔線 */
@@ -182,6 +182,10 @@ static ssize_t kfetch_read(struct file *filp,
 
         for (; logo_len < LOGO_WIDTH && len < BUF_LEN - 1; logo_len++)
             kfetch_buf[len++] = ' ';
+
+        if(strlen(logo_lines[i]) > 20){
+            kfetch_buf[len++] = ' ';
+        }
 
         if (info_idx >= 0 && info_idx < info_count) {
             len += scnprintf(kfetch_buf + len, BUF_LEN - len,
