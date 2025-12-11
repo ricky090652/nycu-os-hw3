@@ -108,7 +108,7 @@ static ssize_t kfetch_read(struct file *filp,
     /* CPU model */
     if (mask_info & KFETCH_CPU_MODEL) {
         snprintf(info_lines[info_count], sizeof(info_lines[info_count]),
-                 "\033[33mCPU:\033[0m %s", "RISC-V Processor");
+                 "\033[33mCPU:\033[0m    %s", "RISC-V Processor");
         info_count++;
     }
 
@@ -117,7 +117,7 @@ static ssize_t kfetch_read(struct file *filp,
         int online = num_online_cpus();
         int total  = num_possible_cpus();
         snprintf(info_lines[info_count], sizeof(info_lines[info_count]),
-                 "\033[33mCPUs:\033[0m %d / %d", online, total);
+                 "\033[33mCPUs:\033[0m   %d / %d", online, total);
         info_count++;
     }
 
@@ -131,7 +131,7 @@ static ssize_t kfetch_read(struct file *filp,
         free_mb  = (si.freeram  * si.mem_unit) / (1024 * 1024);
 
         snprintf(info_lines[info_count], sizeof(info_lines[info_count]),
-                 "\033[33mMem:\033[0m %lu / %lu MB", free_mb, total_mb);
+                 "\033[33mMem:\033[0m    %lu / %lu MB", free_mb, total_mb);
         info_count++;
     }
 
@@ -142,7 +142,7 @@ static ssize_t kfetch_read(struct file *filp,
             if (task->mm)
                 procs++;
         snprintf(info_lines[info_count], sizeof(info_lines[info_count]),
-                 "\033[33mProcs:\033[0m %d", procs);
+                 "\033[33mProcs:\033[0m  %d", procs);
         info_count++;
     }
 
